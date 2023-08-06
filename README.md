@@ -1,1 +1,1 @@
-# ecg-delineation
+# README
