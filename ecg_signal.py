@@ -4,10 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-import pywt
-from scipy import stats
-
 import wfdb
+from wfdb.processing import normalize_bound
 
 import data_utils
 
@@ -50,7 +48,8 @@ LEADS = ['atr_i', 'atr_ii', 'atr_iii']
 
 class ECGSignal:
     def __init__(self, signal, samples, symbols):
-        self.signal = signal
+        self.signal = data_utils.denoise_dwt(signal, wavelet='coif5', level=7)
+        self.signal = normalize_bound(self.signal)
         self.samples = samples
         self.symbols = symbols
 
@@ -117,6 +116,22 @@ class ECGSignal:
             legend_patches.append(patch)
 
         ax.legend(handles=legend_patches, loc='upper right')
+    
+    '''
+    -1d to 2d only
+    -valid_values is a set of unique valid values
+    -all values in segment_map that doesn't exist in valid_values will be ignored
+    '''
+    @staticmethod
+    def one_hot_segment_map(segment_map, valid_values):
+        num_classes = len(valid_values)
+
+        res = np.zeros((segment_map.size, num_classes))
+
+        for value in valid_values:
+            res[np.where(segment_map == value), value] = 1
+        
+        return res
 
     def plot_signal_samples(self):
         _, ax = plt.subplots(figsize=(28, 3))

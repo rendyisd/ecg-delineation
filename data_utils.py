@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -79,3 +80,11 @@ def calculate_snr(original_signal, denoised_signal):
 #     snr = 10 * np.log10(numerator / denominator)
 
 #     return snr
+
+def save_file(fpath, data):
+    with open(fpath, 'wb') as f:
+        pickle.dump(data, f)
+
+def open_pickle(fpath):
+    with open(fpath, 'rb') as f:
+        return pickle.load(f)

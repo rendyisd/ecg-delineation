@@ -1,5 +1,7 @@
-# exclude data folder
+# Excluded folders
 data/
+test/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
