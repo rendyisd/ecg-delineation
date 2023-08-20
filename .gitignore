@@ -1,5 +1,6 @@
 # Excluded folders
 data/
+result/
 test/
 
 # Byte-compiled / optimized / DLL files

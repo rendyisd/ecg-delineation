@@ -7,40 +7,52 @@ import matplotlib.patches as patches
 import wfdb
 from wfdb.processing import normalize_bound
 
-import data_utils
+import util_func
 
 CURR_DIR = os.getcwd()
 DATA_DIR = os.path.join(CURR_DIR, 'data/ludb')
 
+# CLASSES = [
+#     'Pon-Poff',
+#     'Poff-QRSon',
+#     'QRSon-Rpeak',
+#     'Rpeak-QRSoff',
+#     'QRSoff-Ton',
+#     'Ton-Toff',
+#     'Toff-Pon2'
+# ]
+
 SEGMENTS_STR = {
-    0: 'Pon-Poff',
-    1: 'Poff-QRSon',
-    2: 'QRSon-Rpeak',
-    3: 'Rpeak-QRSoff',
-    4: 'QRSoff-Ton',
-    5: 'Ton-Toff',
-    6: 'Toff-Pon2'
+    0: 'Zero padding',
+    1: 'Pon-Poff',
+    2: 'Poff-QRSon',
+    3: 'QRSon-Rpeak',
+    4: 'Rpeak-QRSoff',
+    5: 'QRSoff-Ton',
+    6: 'Ton-Toff',
+    7: 'Toff-Pon2'
 }
 # for better readability
 SEGMENTS_NUM = {
-    'Pon-Poff': 0,
-    'Poff-QRSon': 1,
-    'QRSon-Rpeak': 2,
-    'Rpeak-QRSoff': 3,
-    'QRSoff-Ton': 4,
-    'Ton-Toff': 5,
-    'Toff-Pon2': 6
+    'Zero padding': 0,
+    'Pon-Poff': 1,
+    'Poff-QRSon': 2,
+    'QRSon-Rpeak': 3,
+    'Rpeak-QRSoff': 4,
+    'QRSoff-Ton': 5,
+    'Ton-Toff': 6,
+    'Toff-Pon2': 7
 }
 
 
 SEGMENT_TO_COLOR = {
-    0: 'red',
-    1: 'darkorange',
-    2: 'yellow',
-    3: 'green',
-    4: 'blue',
-    5: 'darkcyan',
-    6: 'purple'
+    1: 'red',
+    2: 'darkorange',
+    3: 'yellow',
+    4: 'green',
+    5: 'blue',
+    6: 'darkcyan',
+    7: 'purple'
 }
 
 # LEADS = ['atr_avf', 'atr_avl', 'atr_avr', 'atr_i', 'atr_ii', 'atr_iii', 'atr_v1', 'atr_v2', 'atr_v3', 'atr_v4', 'atr_v5', 'atr_v6']
@@ -48,7 +60,7 @@ LEADS = ['atr_i', 'atr_ii', 'atr_iii']
 
 class ECGSignal:
     def __init__(self, signal, samples, symbols):
-        self.signal = data_utils.denoise_dwt(signal, wavelet='coif5', level=7)
+        self.signal = util_func.denoise_dwt(signal, wavelet='coif5', level=7)
         self.signal = normalize_bound(self.signal)
         self.samples = samples
         self.symbols = symbols
@@ -80,7 +92,7 @@ class ECGSignal:
         ptr_start = 0
         ptr_end = 0
 
-        # 0 1 2 3 4 5 6
+        # 1 2 3 4 5 6 7
         curr_seg = segment_map[0]
         segments.append(curr_seg)
 
@@ -88,7 +100,7 @@ class ECGSignal:
             if seg != curr_seg:    
                 ptr_end = idx - 1
 
-                # the if here is TEMP
+                # just skip -1 since they're not a segment to color
                 if(curr_seg != -1):
                     color = SEGMENT_TO_COLOR[curr_seg]
                     ax.axvspan(ptr_start, ptr_end, color=color, alpha=0.4)
@@ -167,7 +179,7 @@ class ECGSignal:
         segment_start_end = []
 
         prev_symbol = None
-        for start, peak, end in data_utils.grouped(self.samples):
+        for start, peak, end in util_func.grouped(self.samples):
             symbol_idx = np.where(self.samples == peak)[0][0]
 
             curr_symbol = self.symbols[symbol_idx]
@@ -205,23 +217,38 @@ class ECGSignal:
         
         return segment_map, segment_start_end
 
-    # return signal and segment_map
+
+    # returns signal and segment_map
     def cut_per_beat(self):
-        # beats list contains tuple (signal, segment_map) of each beat
-        beats = []
-        prev_p_start = None
+        normal_beat_seq = [1, 2, 3, 4, 5, 6, 7] # normal beat segments sequence
+        seq_to_compare = []
+        p_start_ptr = 0
+        t_end_ptr = 0
+        prev_end = None
+        beats = [] # beats list contains tuple (signal, segment_map) of each beat
 
         for seg, points in self.segment_start_end:
-            start, _ = points
+            start, end = points
+
+            # if start - prev_end is not 0 that means theres a gap between the segment
+            if(prev_end is None) or (start - prev_end == 0):
+                seq_to_compare.append(seg)
+
+            prev_end = end
 
             if(seg == SEGMENTS_NUM['Pon-Poff']):
-                if prev_p_start is not None:
-                    signal = self.signal[prev_p_start:start]
-                    segment_map = self.segment_map[prev_p_start:start] 
+                p_start_ptr = start
 
-                    beats.append((signal, segment_map))                
+                seq_to_compare = [1]
+            
+            elif(seg == SEGMENTS_NUM['Toff-Pon2']):
+                t_end_ptr = end
 
-                prev_p_start = start
+                if(seq_to_compare == normal_beat_seq):
+                    signal = self.signal[p_start_ptr:t_end_ptr]
+                    segment_map = self.segment_map[p_start_ptr:t_end_ptr] 
+
+                    beats.append((signal, segment_map))
         
         return beats
             

@@ -1,3 +1,4 @@
+import os
 import pickle
 import numpy as np
 import pandas as pd
@@ -17,6 +18,18 @@ def grouped(itr, n=3):
         if vals[-1] is end:
             return
         yield vals
+
+def save_file(fpath, data):
+    with open(fpath, 'wb') as f:
+        pickle.dump(data, f)
+
+def open_pickle(fpath):
+    with open(fpath, 'rb') as f:
+        return pickle.load(f)
+    
+def make_dir(dir_path):
+    if not os.path.exists(dir_path):
+        os.makedir(dir_path)
 
 '''
 signal: an array (self-explanatory)
@@ -80,11 +93,3 @@ def calculate_snr(original_signal, denoised_signal):
 #     snr = 10 * np.log10(numerator / denominator)
 
 #     return snr
-
-def save_file(fpath, data):
-    with open(fpath, 'wb') as f:
-        pickle.dump(data, f)
-
-def open_pickle(fpath):
-    with open(fpath, 'rb') as f:
-        return pickle.load(f)
