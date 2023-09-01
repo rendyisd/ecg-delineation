@@ -7,21 +7,12 @@ import matplotlib.patches as patches
 import wfdb
 from wfdb.processing import normalize_bound
 
-import util_func
+from util_module import util_func
 
 CURR_DIR = os.getcwd()
-DATA_DIR = os.path.join(CURR_DIR, 'data/ludb')
+DATA_DIR = os.path.join(CURR_DIR, '../data/ludb')
 
-# CLASSES = [
-#     'Pon-Poff',
-#     'Poff-QRSon',
-#     'QRSon-Rpeak',
-#     'Rpeak-QRSoff',
-#     'QRSoff-Ton',
-#     'Ton-Toff',
-#     'Toff-Pon2'
-# ]
-
+# for better readability
 SEGMENTS_STR = {
     0: 'Zero padding',
     1: 'Pon-Poff',
@@ -32,7 +23,6 @@ SEGMENTS_STR = {
     6: 'Ton-Toff',
     7: 'Toff-Pon2'
 }
-# for better readability
 SEGMENTS_NUM = {
     'Zero padding': 0,
     'Pon-Poff': 1,
@@ -43,8 +33,6 @@ SEGMENTS_NUM = {
     'Ton-Toff': 6,
     'Toff-Pon2': 7
 }
-
-
 SEGMENT_TO_COLOR = {
     1: 'red',
     2: 'darkorange',
@@ -54,13 +42,14 @@ SEGMENT_TO_COLOR = {
     6: 'darkcyan',
     7: 'purple'
 }
+LEADS = ['atr_avf', 'atr_avl', 'atr_avr', 'atr_i', 'atr_ii', 'atr_iii', 'atr_v1', 'atr_v2', 'atr_v3', 'atr_v4', 'atr_v5', 'atr_v6']
 
-# LEADS = ['atr_avf', 'atr_avl', 'atr_avr', 'atr_i', 'atr_ii', 'atr_iii', 'atr_v1', 'atr_v2', 'atr_v3', 'atr_v4', 'atr_v5', 'atr_v6']
-LEADS = ['atr_i', 'atr_ii', 'atr_iii']
+WAVELET_FUNCTION = 'coif5'
+DECOMPOSITION_LEVEL = 8
 
 class ECGSignal:
     def __init__(self, signal, samples, symbols):
-        self.signal = util_func.denoise_dwt(signal, wavelet='coif5', level=7)
+        self.signal = util_func.denoise_dwt(signal, wavelet=WAVELET_FUNCTION, level=DECOMPOSITION_LEVEL)
         self.signal = normalize_bound(self.signal)
         self.samples = samples
         self.symbols = symbols
@@ -81,8 +70,8 @@ class ECGSignal:
         return ECGSignal(signal, samples, symbols)
     
     @staticmethod
-    def plot_signal_segments(signal, segment_map):
-        _, ax = plt.subplots(figsize=(28, 3))
+    def plot_signal_segments(signal, segment_map, save_path=None):
+        fig, ax = plt.subplots(figsize=(28, 3))
 
         ax.plot(signal)
 
@@ -128,22 +117,25 @@ class ECGSignal:
             legend_patches.append(patch)
 
         ax.legend(handles=legend_patches, loc='upper right')
+        if save_path is not None:
+            fig.savefig(save_path)
     
     '''
+    -CURRENTLY NOT NEEDED
     -1d to 2d only
     -valid_values is a set of unique valid values
     -all values in segment_map that doesn't exist in valid_values will be ignored
     '''
-    @staticmethod
-    def one_hot_segment_map(segment_map, valid_values):
-        num_classes = len(valid_values)
+    # @staticmethod
+    # def one_hot_segment_map(segment_map, valid_values):
+    #     num_classes = len(valid_values)
 
-        res = np.zeros((segment_map.size, num_classes))
+    #     res = np.zeros((segment_map.size, num_classes))
 
-        for value in valid_values:
-            res[np.where(segment_map == value), value] = 1
+    #     for value in valid_values:
+    #         res[np.where(segment_map == value), value] = 1
         
-        return res
+    #     return res
 
     def plot_signal_samples(self):
         _, ax = plt.subplots(figsize=(28, 3))
@@ -230,7 +222,7 @@ class ECGSignal:
         for seg, points in self.segment_start_end:
             start, end = points
 
-            # if start - prev_end is not 0 that means theres a gap between the segment
+            # if start - prev_end is not 0 that means theres a gap between the segment (not a normal beat)
             if(prev_end is None) or (start - prev_end == 0):
                 seq_to_compare.append(seg)
 

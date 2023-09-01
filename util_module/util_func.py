@@ -29,7 +29,7 @@ def open_pickle(fpath):
     
 def make_dir(dir_path):
     if not os.path.exists(dir_path):
-        os.makedir(dir_path)
+        os.makedirs(dir_path)
 
 '''
 signal: an array (self-explanatory)
