@@ -38,39 +38,6 @@ def train_val_test_split(X, y):
 
     return X_train, X_val, X_test, y_train, y_val, y_test
 
-def get_x(features_train, features_val, features_test):
-    X_train = []
-    zpad_length_train = []
-
-    for row in features_train:
-        X_train.append(row[0])
-        zpad_length_train.append(row[1])
-
-    X_val = []
-    zpad_length_val = []
-
-    for row in features_val:
-        X_val.append(row[0])
-        zpad_length_val.append(row[1])
-
-    X_test = []
-    zpad_length_test = []
-
-    for row in features_test:
-        X_test.append(row[0])
-        zpad_length_test.append(row[1])
-
-
-    X_train = np.array(X_train)
-    X_val = np.array(X_val)
-    X_test = np.array(X_test)
-    # Reshape X to be the same format as y
-    X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
-    X_val = X_val.reshape(X_val.shape[0], X_val.shape[1], 1)
-    X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
-
-    return X_train, X_val, X_test, zpad_length_train, zpad_length_val, zpad_length_test
-
 def generate_model(input_shape, output, lr=1e-5, n_layer=1):
     model = tf.keras.models.Sequential()
     opt = tf.keras.optimizers.Adam(learning_rate=lr)

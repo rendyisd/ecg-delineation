@@ -31,31 +31,12 @@ def make_dir(dir_path):
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
 
-'''
-signal: an array (self-explanatory)
-wavelet: either wavelet name string or wavelet object
-level: an integer, decomposition level
-'''
-def universal_threshold(coeffs):
-    # Flatten the detail coefficients (excluding the approximation coefficients)
-    detail_coeffs = np.concatenate(coeffs[1:])
-
-    # Compute the noise variance estimate using Median Absolute Deviation (MAD)
-    noise_var = (stats.median_abs_deviation(detail_coeffs) / 0.6745) ** 2
-
-    # Calculate the universal threshold based on the SURE criterion
-    threshold = np.sqrt(2 * noise_var * np.log(len(detail_coeffs)))
-
-    return threshold
-
-# TODO:find the reference for SURE threshold
 def denoise_dwt(signal, wavelet, level):
     coeffs = pywt.wavedec(signal, wavelet, level=level)
     '''
     As per the pywt.wavedec docs:
     coeffs[0] contains approximation coeffs and the rest are detail coeffs
     '''
-    # threshold = universal_threshold(coeffs)
 
     for i in range(1, len(coeffs)):
         threshold = stats.median_abs_deviation(coeffs[i])

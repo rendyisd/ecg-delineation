@@ -7,6 +7,8 @@ import matplotlib.patches as patches
 import wfdb
 from wfdb.processing import normalize_bound
 
+from tensorflow.keras.utils import to_categorical
+
 from util_module import util_func
 
 CURR_DIR = os.getcwd()
@@ -70,6 +72,69 @@ class ECGSignal:
         return ECGSignal(signal, samples, symbols)
 
     @staticmethod
+    def to_dict(leads, record_numbers=-1):
+        '''
+        Parameters:
+        leads (list of string): list of lead file extension name
+        record_numbers (list of int): if not provided, all records will be used
+        '''
+        if record_numbers == -1:
+            record_numbers = range(1, 201)
+
+        longest_beat = 0
+        for record_num in record_numbers:
+            for lead in leads:
+                s = ECGSignal.load_ecg_signal(record_num, lead)
+                s_beats = s.cut_per_beat()
+
+                for beat in s_beats:
+                    signal, _ = beat
+                    longest_beat = max(longest_beat, len(signal))
+        
+        feature = []
+        zero_pad_length = []
+        lead_n = []
+        record_n = []
+        label = []
+        for record_num in range(1, 201):
+            for lead in leads:
+                try:
+                    s = ECGSignal.load_ecg_signal(record_num, lead)
+                    s_beats = s.cut_per_beat()
+
+                    for beat in s_beats:
+                        signal, segment_map = beat
+                        signal = np.array(signal)
+                        segment_map = np.array(segment_map)
+
+                        # Zero padding
+                        pad_length = longest_beat - len(signal)
+
+                        signal = np.pad(signal, (0, pad_length), mode='constant', constant_values=0)
+                        segment_map = np.pad(segment_map, (0, pad_length), mode='constant', constant_values=0)
+
+                        segment_map = to_categorical(segment_map, num_classes=8)
+
+                        feature.append(signal)
+                        zero_pad_length.append(pad_length)
+                        lead_n.append(lead)
+                        record_n.append(record_num)
+                        label.append(segment_map)
+
+                except:
+                    # Print failed instance
+                    print(f"Record: {record_num} | Lead: {lead}", end=' , ')
+        
+        result = {
+            'signal': feature,
+            'zpad_length': zero_pad_length,
+            'lead': lead_n,
+            'record': record_n,
+            'segment_map': label
+        }
+        return result
+
+    @staticmethod
     def plot_signal_segments(signal, segment_map, ax=None, save_path=None):
         if ax is None:
             fig, ax = plt.subplots(figsize=(28, 3))
@@ -114,23 +179,6 @@ class ECGSignal:
         ax.legend(handles=legend_patches, loc='upper right')
         if save_path is not None:
             fig.savefig(save_path)
-    
-    '''
-    -CURRENTLY NOT NEEDED
-    -1d to 2d only
-    -valid_values is a set of unique valid values
-    -all values in segment_map that doesn't exist in valid_values will be ignored
-    '''
-    # @staticmethod
-    # def one_hot_segment_map(segment_map, valid_values):
-    #     num_classes = len(valid_values)
-
-    #     res = np.zeros((segment_map.size, num_classes))
-
-    #     for value in valid_values:
-    #         res[np.where(segment_map == value), value] = 1
-        
-    #     return res
 
     def plot_signal_samples(self):
         _, ax = plt.subplots(figsize=(28, 3))

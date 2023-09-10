@@ -1,5 +1,6 @@
 # Excluded folders
 data/
+model/
 result/
 test/
 
