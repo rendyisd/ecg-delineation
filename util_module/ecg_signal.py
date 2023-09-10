@@ -68,49 +68,44 @@ class ECGSignal:
         symbols = ann.symbol
 
         return ECGSignal(signal, samples, symbols)
-    
+
     @staticmethod
-    def plot_signal_segments(signal, segment_map, save_path=None):
-        fig, ax = plt.subplots(figsize=(28, 3))
+    def plot_signal_segments(signal, segment_map, ax=None, save_path=None):
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(28, 3))
+        # TODO: NO IDEA HOW I CAN SAVE THIS PASSED AX INSTANCE. So if ax is not None and save_path is not None, thing will surely break
 
         ax.plot(signal)
 
+        segment_start_end = []
         segments = []
         legend_patches = []
 
         ptr_start = 0
         ptr_end = 0
 
-        # 1 2 3 4 5 6 7
-        curr_seg = segment_map[0]
-        segments.append(curr_seg)
+        for i in range(1, len(segment_map)):
+            curr_seg = segment_map[i]
+            prev_seg = segment_map[i-1]
+            if curr_seg != prev_seg:
+                ptr_end = i - 1
+                if(segment_map[ptr_start] not in [-1, 0]): # not annotated (-1) and zero pad (0)
+                    segment_start_end.append((segment_map[ptr_start], (ptr_start, ptr_end)))
+                    if(segment_map[ptr_start] not in segments):
+                        segments.append(segment_map[ptr_start])
+                ptr_start = i
+        
+        # add last segment
+        ptr_end = len(segment_map) - 1
+        if(segment_map[ptr_start] not in [-1, 0]):
+            segment_start_end.append((segment_map[ptr_start], (ptr_start, ptr_end)))
+            if(segment_map[ptr_start] not in segments):
+                segments.append(segment_map[ptr_start])
 
-        for idx, seg in enumerate(segment_map):
-            if seg != curr_seg:    
-                ptr_end = idx - 1
-
-                # just skip -1 since they're not a segment to color
-                if(curr_seg != -1):
-                    color = SEGMENT_TO_COLOR[curr_seg]
-                    ax.axvspan(ptr_start, ptr_end, color=color, alpha=0.4)
-
-                    if curr_seg not in segments:
-                        segments.append(curr_seg)
-
-                curr_seg = seg
-                ptr_start = idx - 1
-            
-            # at the end of segment_map
-            elif idx == len(segment_map) - 1:
-                ptr_end = idx
-
-                if(curr_seg != -1):
-
-                    color = SEGMENT_TO_COLOR[curr_seg]
-                    ax.axvspan(ptr_start, ptr_end, color=color, alpha=0.4)
-
-                    if curr_seg not in segments:
-                        segments.append(seg)
+        for seg, points in segment_start_end:
+            start, end = points
+            color = SEGMENT_TO_COLOR[seg]
+            ax.axvspan(start, end, color=color, alpha=0.4)
         
         for seg in sorted(segments):
             patch = patches.Patch(color=SEGMENT_TO_COLOR[seg], label=SEGMENTS_STR[seg])
@@ -243,4 +238,24 @@ class ECGSignal:
                     beats.append((signal, segment_map))
         
         return beats
+
+    def cut_p_to_p(self):
+        prev_p_start = None
+        beats = []
+        for seg, points in self.segment_start_end:
+            start, _ = points
+
+            if (seg == SEGMENTS_NUM['Pon-Poff']) and (prev_p_start is None):
+                prev_p_start = start
+                break
+            
+            elif (seg == SEGMENTS_NUM['Pon-Poff']):
+                signal = self.signal[prev_p_start:start]
+                segment_map = self.segment_map[prev_p_start:start]
+
+                beats.append((signal, segment_map))
+        
+        return beats
+
+
             
