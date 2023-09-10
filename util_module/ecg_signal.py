@@ -72,24 +72,26 @@ class ECGSignal:
         return ECGSignal(signal, samples, symbols)
 
     @staticmethod
-    def to_dict(leads, record_numbers=-1):
+    def to_dict(leads, longest_beat=None, record_numbers=-1):
         '''
         Parameters:
         leads (list of string): list of lead file extension name
+        longest_beat (int): longest beat used for zero padding reference
         record_numbers (list of int): if not provided, all records will be used
         '''
         if record_numbers == -1:
             record_numbers = range(1, 201)
 
-        longest_beat = 0
-        for record_num in record_numbers:
-            for lead in leads:
-                s = ECGSignal.load_ecg_signal(record_num, lead)
-                s_beats = s.cut_per_beat()
+        if longest_beat is None:
+            longest_beat = 0
+            for record_num in record_numbers:
+                for lead in leads:
+                    s = ECGSignal.load_ecg_signal(record_num, lead)
+                    s_beats = s.cut_per_beat()
 
-                for beat in s_beats:
-                    signal, _ = beat
-                    longest_beat = max(longest_beat, len(signal))
+                    for beat in s_beats:
+                        signal, _ = beat
+                        longest_beat = max(longest_beat, len(signal))
         
         feature = []
         zero_pad_length = []
