@@ -1,43 +1,38 @@
+import time
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import tensorflow as tf
 
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import roc_curve, auc, precision_recall_curve, average_precision_score
 
-import tensorflow as tf
-
 from util_module import util_func
+from util_module.ecg_signal import ECGSignal
 
 CLASSES = [
-    'Zero padding',
     'Pon-Poff',
     'Poff-QRSon',
     'QRSon-Rpeak',
     'Rpeak-QRSoff',
     'QRSoff-Ton',
     'Ton-Toff',
-    'Toff-Pon2'
+    'Toff-Pon2',
+    'Zero padding',
 ]
 COLORS = { # Zero padding given no color
-    1: 'red',
-    2: 'darkorange',
-    3: 'yellow',
-    4: 'green',
-    5: 'blue',
-    6: 'darkcyan',
-    7: 'purple'
+    0: 'red',
+    1: 'darkorange',
+    2: 'yellow',
+    3: 'green',
+    4: 'blue',
+    5: 'darkcyan',
+    6: 'purple'
 }
 
-# Fixed for 80% train, 10% val, 10% test
-def train_val_test_split(X, y):
-    X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=.1, shuffle=False, random_state=2023)
-    X_train, X_val, y_train, y_val = train_test_split(X_temp, y_temp, test_size=len(X_test)/len(X_temp), shuffle=False, random_state=2023)
-
-    return X_train, X_val, X_test, y_train, y_val, y_test
-
+#DEPRECATED
 def generate_model(input_shape, output, lr=1e-5, n_layer=1):
     model = tf.keras.models.Sequential()
     opt = tf.keras.optimizers.Adam(learning_rate=lr)
@@ -49,10 +44,10 @@ def generate_model(input_shape, output, lr=1e-5, n_layer=1):
     model.add(tf.keras.layers.Conv1D(64, 3, padding='same', activation='relu'))
 
     # Bidirectional LSTM
-    model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(781, input_shape=input_shape, return_sequences=True)))
+    model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(input_shape[0], input_shape=input_shape, return_sequences=True)))
 
     for i in range(n_layer-1):
-        model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(781, return_sequences=True)))
+        model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(input_shape[0], return_sequences=True)))
 
     # Fully connected layers
     model.add(tf.keras.layers.Dense(output, activation='softmax'))
@@ -64,11 +59,11 @@ def generate_model(input_shape, output, lr=1e-5, n_layer=1):
 def plot_acc_loss(model_h, save_to):
     util_func.make_dir(save_to)
 
-    train_acc = model_h.history['accuracy']
-    train_loss = model_h.history['loss']
+    train_acc = model_h['accuracy']
+    train_loss = model_h['loss']
 
-    val_acc = model_h.history['val_accuracy']
-    val_loss = model_h.history['val_loss']
+    val_acc = model_h['val_accuracy']
+    val_loss = model_h['val_loss']
 
     plt.figure(figsize=(12, 4))
     plt.subplot(1, 2, 1)
@@ -182,8 +177,8 @@ def roc_pr(y_true, y_pred, save_to):
     fpr, tpr, roc_auc = {}, {}, {}
     precision, recall, average_precision = {}, {}, {}
 
-    # exclude zero padding on first index
-    for i in range(1, 8):
+    # exclude zero padding
+    for i in range(0, 7):
         yt_i = y_true[:, i]
         yp_i = y_pred[:, i]
         fpr[i], tpr[i], _ = roc_curve(yt_i, yp_i)
@@ -194,7 +189,7 @@ def roc_pr(y_true, y_pred, save_to):
 
     fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
 
-    for i in range(1, 8):
+    for i in range(0, 7):
         plt.plot(
             fpr[i],
             tpr[i],
@@ -213,7 +208,7 @@ def roc_pr(y_true, y_pred, save_to):
     fig.savefig(f'{save_to}/ROC_curve.jpg', bbox_inches='tight')
 
     fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
-    for i in range(1, 8):
+    for i in range(0, 7):
         plt.plot(
             recall[i],
             precision[i],
@@ -229,3 +224,157 @@ def roc_pr(y_true, y_pred, save_to):
     ax.set_title('Precision-Recall Curve')
     ax.legend(loc='lower left')
     fig.savefig(f'{save_to}/PR_curve.jpg', bbox_inches='tight')
+
+#DEPRECATED
+# def generate_results(train_set, val_set, test_set, zpad_length, lead):
+#     # plot_segments wrapper strictly for this function
+#     def plot_segments(X, y, zpad, idx, save_path):
+#         signal = X[idx].flatten()
+#         segment_map = y[idx].argmax(axis=1)
+
+#         beat_span = len(signal) - zpad[idx]
+
+#         signal = signal[:beat_span]
+#         segment_map = segment_map[:beat_span]
+
+#         ECGSignal.plot_signal_segments(signal, segment_map, save_path)
+    
+#     start_time = time.time()
+
+#     X_train, y_train = train_set
+#     X_val, y_val = val_set
+#     X_test, y_test = test_set
+
+#     zpad_length_train, zpad_length_val, zpad_length_test = zpad_length
+
+#     # Good fit model architecture
+#     lr = 0
+#     n_layer = 0
+#     bs = 0
+#     epoch = 0
+
+#     model_name = f'ConvBiLSTM--{lead}--LR_{lr}-Nlayer_{n_layer}-BS_{bs}-Epoch_{epoch}'
+#     result_path = f'../result/{model_name}'
+#     save_to_train = f'{result_path}/train'
+#     save_to_val = f'{result_path}/val'
+#     save_to_test = f'{result_path}/test'
+
+#     util_func.make_dir(f'{save_to_train}/delineation')
+#     util_func.make_dir(f'{save_to_val}/delineation')
+#     util_func.make_dir(f'{save_to_test}/delineation')
+
+#     model = generate_model((X_train.shape[1], 1), 8, lr=lr, n_layer=n_layer)
+#     history = model.fit(X_train, y_train, epochs=epoch, batch_size=bs, validation_data=(X_val, y_val))
+
+#     model.save(f'{model_name}.h5')
+#     plot_acc_loss(history, result_path)
+
+#     # PREDICT TRAIN
+#     y_pred_train = model.predict(X_train)
+#     calc_metrics(y_train, y_pred_train, save_to_train)
+#     roc_pr(y_train, y_pred_train, save_to_train)
+    
+#     for i in range(0, 41, 10):
+#         plot_segments(X_train, y_train, zpad=zpad_length_train, idx=i, save_path=f'{save_to_train}/delineation/Expert_annotated_{i}.jpg') # Expert annotated
+#         plot_segments(X_train, y_pred_train, zpad=zpad_length_train, idx=i, save_path=f'{save_to_train}/delineation/Prediction_{i}.jpg') # Prediction
+#     # ====================================================
+
+#     # PREDICT VALIDATION
+#     y_pred_val = model.predict(X_val)
+#     calc_metrics(y_val, y_pred_val, save_to_val)
+#     roc_pr(y_val, y_pred_val, save_to_val)
+
+#     for i in range(0, 41, 10):
+#         plot_segments(X_val, y_val, zpad=zpad_length_val, idx=i, save_path=f'{save_to_val}/delineation/Expert_annotated_{i}.jpg') # Expert annotated
+#         plot_segments(X_val, y_pred_val, zpad=zpad_length_val, idx=i, save_path=f'{save_to_val}/delineation/Prediction_{i}.jpg') # Prediction
+#     # ====================================================
+
+#     # PREDICT test
+#     y_pred_test = model.predict(X_test)
+#     calc_metrics(y_test, y_pred_test, save_to_test)
+#     roc_pr(y_test, y_pred_test, save_to_test)
+
+#     for i in range(0, 41, 10):
+#         plot_segments(X_test, y_test, zpad=zpad_length_test, idx=i, save_path=f'{save_to_test}/delineation/Expert_annotated_{i}.jpg') # Expert annotated
+#         plot_segments(X_test, y_pred_test, zpad=zpad_length_test, idx=i, save_path=f'{save_to_test}/delineation/Prediction_{i}.jpg') # Prediction
+#     # ====================================================
+
+#     end_time = time.time()
+#     time_elapsed = end_time - start_time
+#     with open(f'{result_path}/Model_info.txt', 'w') as info_file:
+#         info_file.write(f'{model_name}\n')
+#         info_file.write(f'Learning Rate: {lr} | n_layer: {n_layer} | Batch Size: {bs}\n | Epoch: {epoch}')
+#         info_file.write(f'Time elapsed: {time_elapsed:.2f} seconds\n')
+
+def generate_results(model, model_history, model_info, train_set, val_set, test_set, zpad_length):
+    '''
+    model: trained model
+    model_history: dictionary of model training history
+    model_info: dictionary, must atleast have the "name" key
+    '''
+    def plot_segments(X, y, zpad, idx, save_path):
+        signal = X[idx].flatten()
+        segment_map = y[idx].argmax(axis=1)
+
+        beat_span = len(signal) - zpad[idx]
+
+        signal = signal[:beat_span]
+        segment_map = segment_map[:beat_span]
+
+        ECGSignal.plot_signal_segments(signal, segment_map, save_path=save_path)
+
+    X_train, y_train = train_set
+    X_val, y_val = val_set
+    X_test, y_test = test_set
+
+    zpad_length_train, zpad_length_val, zpad_length_test = zpad_length
+    
+    result_path = f'../result/{model_info["name"]}'
+    save_to_train = f'{result_path}/train'
+    save_to_val = f'{result_path}/val'
+    save_to_test = f'{result_path}/test'
+
+    util_func.make_dir(f'{save_to_train}/delineation')
+    util_func.make_dir(f'{save_to_val}/delineation')
+    util_func.make_dir(f'{save_to_test}/delineation')
+
+    model.save(f'{result_path}/{model_info["name"]}.h5')
+
+    plot_acc_loss(model_history, result_path)
+
+    # PREDICT TRAIN
+    y_pred_train = model.predict(X_train)
+    calc_metrics(y_train, y_pred_train, save_to_train)
+    roc_pr(y_train, y_pred_train, save_to_train)
+    
+    for i in range(0, 41, 10):
+        plot_segments(X_train, y_train, zpad=zpad_length_train, idx=i, save_path=f'{save_to_train}/delineation/Expert_annotated_{i}.jpg') # Expert annotated
+        plot_segments(X_train, y_pred_train, zpad=zpad_length_train, idx=i, save_path=f'{save_to_train}/delineation/Prediction_{i}.jpg') # Prediction
+    # ====================================================
+
+    # PREDICT VALIDATION
+    y_pred_val = model.predict(X_val)
+    calc_metrics(y_val, y_pred_val, save_to_val)
+    roc_pr(y_val, y_pred_val, save_to_val)
+
+    for i in range(0, 41, 10):
+        plot_segments(X_val, y_val, zpad=zpad_length_val, idx=i, save_path=f'{save_to_val}/delineation/Expert_annotated_{i}.jpg') # Expert annotated
+        plot_segments(X_val, y_pred_val, zpad=zpad_length_val, idx=i, save_path=f'{save_to_val}/delineation/Prediction_{i}.jpg') # Prediction
+    # ====================================================
+
+    # PREDICT test
+    y_pred_test = model.predict(X_test)
+    calc_metrics(y_test, y_pred_test, save_to_test)
+    roc_pr(y_test, y_pred_test, save_to_test)
+
+    for i in range(0, 41, 10):
+        plot_segments(X_test, y_test, zpad=zpad_length_test, idx=i, save_path=f'{save_to_test}/delineation/Expert_annotated_{i}.jpg') # Expert annotated
+        plot_segments(X_test, y_pred_test, zpad=zpad_length_test, idx=i, save_path=f'{save_to_test}/delineation/Prediction_{i}.jpg') # Prediction
+    # ====================================================
+
+    with open(f'{result_path}/Model_info.txt', 'w') as info_file:
+        model.summary(print_fn=lambda x: info_file.write(x + '\n'))
+
+        for key in model_info.keys():
+            info_file.write(f"{key}: {model_info[key]}\n")
+        

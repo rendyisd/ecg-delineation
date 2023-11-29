@@ -16,38 +16,38 @@ DATA_DIR = os.path.join(CURR_DIR, '../data/ludb')
 
 # for better readability
 SEGMENTS_STR = {
-    0: 'Zero padding',
-    1: 'Pon-Poff',
-    2: 'Poff-QRSon',
-    3: 'QRSon-Rpeak',
-    4: 'Rpeak-QRSoff',
-    5: 'QRSoff-Ton',
-    6: 'Ton-Toff',
-    7: 'Toff-Pon2'
+    0: 'Pon-Poff',
+    1: 'Poff-QRSon',
+    2: 'QRSon-Rpeak',
+    3: 'Rpeak-QRSoff',
+    4: 'QRSoff-Ton',
+    5: 'Ton-Toff',
+    6: 'Toff-Pon2',
+    7: 'Zero padding',
 }
 SEGMENTS_NUM = {
-    'Zero padding': 0,
-    'Pon-Poff': 1,
-    'Poff-QRSon': 2,
-    'QRSon-Rpeak': 3,
-    'Rpeak-QRSoff': 4,
-    'QRSoff-Ton': 5,
-    'Ton-Toff': 6,
-    'Toff-Pon2': 7
+    'Pon-Poff': 0,
+    'Poff-QRSon': 1,
+    'QRSon-Rpeak': 2,
+    'Rpeak-QRSoff': 3,
+    'QRSoff-Ton': 4,
+    'Ton-Toff': 5,
+    'Toff-Pon2': 6,
+    'Zero padding': 7
 }
 SEGMENT_TO_COLOR = {
-    1: 'red',
-    2: 'darkorange',
-    3: 'yellow',
-    4: 'green',
-    5: 'blue',
-    6: 'darkcyan',
-    7: 'purple'
+    0: 'red',
+    1: 'darkorange',
+    2: 'yellow',
+    3: 'green',
+    4: 'blue',
+    5: 'darkcyan',
+    6: 'purple'
 }
-LEADS = ['atr_avf', 'atr_avl', 'atr_avr', 'atr_i', 'atr_ii', 'atr_iii', 'atr_v1', 'atr_v2', 'atr_v3', 'atr_v4', 'atr_v5', 'atr_v6']
+LEADS = ['avf', 'avl', 'avr', 'i', 'ii', 'iii', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6']
 
-WAVELET_FUNCTION = 'coif5'
-DECOMPOSITION_LEVEL = 8
+WAVELET_FUNCTION = 'bior6.8'
+DECOMPOSITION_LEVEL = 7
 
 class ECGSignal:
     def __init__(self, signal, samples, symbols):
@@ -72,7 +72,7 @@ class ECGSignal:
         return ECGSignal(signal, samples, symbols)
 
     @staticmethod
-    def to_dict(leads, longest_beat=None, record_numbers=-1):
+    def to_dict(leads, record_numbers=-1, longest_beat=None):
         '''
         Parameters:
         leads (list of string): list of lead file extension name
@@ -113,7 +113,7 @@ class ECGSignal:
                         pad_length = longest_beat - len(signal)
 
                         signal = np.pad(signal, (0, pad_length), mode='constant', constant_values=0)
-                        segment_map = np.pad(segment_map, (0, pad_length), mode='constant', constant_values=0)
+                        segment_map = np.pad(segment_map, (0, pad_length), mode='constant', constant_values=SEGMENTS_NUM['Zero padding'])
 
                         segment_map = to_categorical(segment_map, num_classes=8)
 
@@ -156,7 +156,7 @@ class ECGSignal:
             prev_seg = segment_map[i-1]
             if curr_seg != prev_seg:
                 ptr_end = i - 1
-                if(segment_map[ptr_start] not in [-1, 0]): # not annotated (-1) and zero pad (0)
+                if(segment_map[ptr_start] not in [-1, SEGMENTS_NUM['Zero padding']]): # not annotated (-1) and zero pad
                     segment_start_end.append((segment_map[ptr_start], (ptr_start, ptr_end)))
                     if(segment_map[ptr_start] not in segments):
                         segments.append(segment_map[ptr_start])
@@ -164,7 +164,7 @@ class ECGSignal:
         
         # add last segment
         ptr_end = len(segment_map) - 1
-        if(segment_map[ptr_start] not in [-1, 0]):
+        if(segment_map[ptr_start] not in [-1, SEGMENTS_NUM['Zero padding']]):
             segment_start_end.append((segment_map[ptr_start], (ptr_start, ptr_end)))
             if(segment_map[ptr_start] not in segments):
                 segments.append(segment_map[ptr_start])
@@ -257,7 +257,7 @@ class ECGSignal:
 
     # returns signal and segment_map
     def cut_per_beat(self):
-        normal_beat_seq = [1, 2, 3, 4, 5, 6, 7] # normal beat segments sequence
+        normal_beat_seq = [0, 1, 2, 3, 4, 5, 6] # normal beat segments sequence
         seq_to_compare = []
         p_start_ptr = 0
         t_end_ptr = 0
@@ -276,7 +276,7 @@ class ECGSignal:
             if(seg == SEGMENTS_NUM['Pon-Poff']):
                 p_start_ptr = start
 
-                seq_to_compare = [1]
+                seq_to_compare = [SEGMENTS_NUM['Pon-Poff']]
             
             elif(seg == SEGMENTS_NUM['Toff-Pon2']):
                 t_end_ptr = end
