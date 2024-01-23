@@ -70,6 +70,7 @@ class ECGSignal:
         symbols = ann.symbol
 
         return ECGSignal(signal, samples, symbols)
+    
 
     @staticmethod
     def to_dict(leads, record_numbers=-1, longest_beat=None):
@@ -99,6 +100,7 @@ class ECGSignal:
         record_n = []
         label = []
         for record_num in range(1, 201):
+            print(f"Record {record_num} starts at index: {len(feature)}")
             for lead in leads:
                 try:
                     s = ECGSignal.load_ecg_signal(record_num, lead)
@@ -126,7 +128,7 @@ class ECGSignal:
                 except:
                     # Print failed instance
                     print(f"Record: {record_num} | Lead: {lead}", end=' , ')
-        
+                    
         result = {
             'signal': feature,
             'zpad_length': zero_pad_length,
@@ -188,8 +190,9 @@ class ECGSignal:
         ax.plot(self.signal)
         ax.scatter(self.samples, self.signal[self.samples], c='red')
     
-    def plot_segments(self):
-        _, ax = plt.subplots(figsize=(28, 3))
+    def plot_segments(self, ax=None):
+        if ax is None:
+            _, ax = plt.subplots(figsize=(28, 3))
 
         ax.plot(self.signal)
 
