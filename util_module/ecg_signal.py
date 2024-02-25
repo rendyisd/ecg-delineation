@@ -36,6 +36,7 @@ SEGMENTS_NUM = {
     'Zero padding': 7
 }
 SEGMENT_TO_COLOR = {
+    -1: 'none',
     0: 'red',
     1: 'darkorange',
     2: 'yellow',
@@ -44,34 +45,82 @@ SEGMENT_TO_COLOR = {
     5: 'darkcyan',
     6: 'purple'
 }
-LEADS = ['avf', 'avl', 'avr', 'i', 'ii', 'iii', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6']
+# LEADS = ['avf', 'avl', 'avr', 'i', 'ii', 'iii', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6'] WRONG
+LEADS = ['i', 'ii', 'iii', 'avr', 'avl', 'avf', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6']
 
-WAVELET_FUNCTION = 'bior6.8'
+WAVELET_FUNCTION = 'bior3.3'
 DECOMPOSITION_LEVEL = 7
 
 class ECGSignal:
-    def __init__(self, signal, samples, symbols):
-        self.signal = util_func.denoise_dwt(signal, wavelet=WAVELET_FUNCTION, level=DECOMPOSITION_LEVEL)
-        self.signal = normalize_bound(self.signal)
+    def __init__(self, signal, samples, symbols, is_st_elevation):
+        self.signal = signal
         self.samples = samples
         self.symbols = symbols
 
         self.segment_map, self.segment_start_end = self.segmentate()
 
+        self.is_st_elevation = is_st_elevation
+    
     @staticmethod
-    def load_ecg_signal(record_number, lead):
+    def _check_st_elevation(record):
+        result = 0
+        for comment in record.comments:
+            if comment.startswith("STEMI:"):
+                result = 1
+                break
+        
+        return result
+
+    @staticmethod
+    def get_signal(leads, record_numbers=-1):
+        if record_numbers == -1:
+            record_numbers = range(1, 201)
+
+        result = {
+            'record_number': [],
+            'lead': [],
+            'signal': [],
+            'is_st_elevation': []
+        }
+
+        for record_num in record_numbers:
+            record_dir = os.path.join(DATA_DIR, str(record_num))
+            record = wfdb.rdrecord(record_dir)
+
+            is_st_elevation = ECGSignal._check_st_elevation(record)
+
+            for lead in leads:
+                signal = record.p_signal[:, LEADS.index(lead)]
+
+                result['record_number'].append(record_num)
+                result['lead'].append(lead)
+                result['signal'].append(signal)
+                result['is_st_elevation'].append(is_st_elevation)
+        
+        return result
+
+
+    @staticmethod
+    def load_ecg_signal(record_number, lead, raw=False):
         record_dir = os.path.join(DATA_DIR, str(record_number))
 
         record = wfdb.rdrecord(record_dir)
         ann = wfdb.rdann(record_dir, lead)
 
         signal = record.p_signal[:, LEADS.index(lead)]
+
+        if not raw:
+            signal = util_func.denoise_dwt(signal, wavelet=WAVELET_FUNCTION, level=DECOMPOSITION_LEVEL)
+            signal = normalize_bound(signal)
+
         samples = ann.sample
         symbols = ann.symbol
 
-        return ECGSignal(signal, samples, symbols)
-    
+        is_st_elevation = ECGSignal._check_st_elevation(record)
 
+        return ECGSignal(signal, samples, symbols, is_st_elevation)
+    
+    
     @staticmethod
     def to_dict(leads, record_numbers=-1, longest_beat=None):
         '''
@@ -80,27 +129,34 @@ class ECGSignal:
         longest_beat (int): longest beat used for zero padding reference
         record_numbers (list of int): if not provided, all records will be used
         '''
+
+        def _find_longest_beat(leads, record_numbers, longest_beat):
+            if longest_beat is None:
+                longest_beat = 0
+                for record_num in record_numbers:
+                    for lead in leads:
+                        s = ECGSignal.load_ecg_signal(record_num, lead)
+                        s_beats = s.cut_per_beat()
+
+                        for beat in s_beats:
+                            signal, _ = beat
+                            longest_beat = max(longest_beat, len(signal))
+
+            return longest_beat
+        
         if record_numbers == -1:
             record_numbers = range(1, 201)
-
-        if longest_beat is None:
-            longest_beat = 0
-            for record_num in record_numbers:
-                for lead in leads:
-                    s = ECGSignal.load_ecg_signal(record_num, lead)
-                    s_beats = s.cut_per_beat()
-
-                    for beat in s_beats:
-                        signal, _ = beat
-                        longest_beat = max(longest_beat, len(signal))
+        
+        longest_beat = _find_longest_beat(leads, record_numbers, longest_beat)
         
         feature = []
         zero_pad_length = []
         lead_n = []
         record_n = []
+        is_st_elevations = []
         label = []
-        for record_num in range(1, 201):
-            print(f"Record {record_num} starts at index: {len(feature)}")
+        for record_num in record_numbers:
+            # print(f"Record {record_num} starts at index: {len(feature)}")
             for lead in leads:
                 try:
                     s = ECGSignal.load_ecg_signal(record_num, lead)
@@ -123,6 +179,7 @@ class ECGSignal:
                         zero_pad_length.append(pad_length)
                         lead_n.append(lead)
                         record_n.append(record_num)
+                        is_st_elevations.append(s.is_st_elevation)
                         label.append(segment_map)
 
                 except:
@@ -134,6 +191,7 @@ class ECGSignal:
             'zpad_length': zero_pad_length,
             'lead': lead_n,
             'record': record_n,
+            'is_st_elevation': is_st_elevations,
             'segment_map': label
         }
         return result
@@ -142,9 +200,9 @@ class ECGSignal:
     def plot_signal_segments(signal, segment_map, ax=None, save_path=None):
         if ax is None:
             fig, ax = plt.subplots(figsize=(28, 3))
-        # TODO: NO IDEA HOW I CAN SAVE THIS PASSED AX INSTANCE. So if ax is not None and save_path is not None, thing will surely break
+        # TODO: NO IDEA HOW I CAN SAVE THIS PASSED AX INSTANCE. So if ax is not None but save_path is not None, thing will surely break
 
-        ax.plot(signal)
+        ax.plot(signal, color='blue')
 
         segment_start_end = []
         segments = []
@@ -177,24 +235,35 @@ class ECGSignal:
             ax.axvspan(start, end, color=color, alpha=0.4)
         
         for seg in sorted(segments):
+            if seg == -1: continue
+
             patch = patches.Patch(color=SEGMENT_TO_COLOR[seg], label=SEGMENTS_STR[seg])
             legend_patches.append(patch)
 
         ax.legend(handles=legend_patches, loc='upper right')
         if save_path is not None:
-            fig.savefig(save_path)
+            fig.savefig(save_path, bbox_inches='tight')
 
-    def plot_signal_samples(self):
-        _, ax = plt.subplots(figsize=(28, 3))
+    def plot_signal_samples(self, save_path=None):
+        fig, ax = plt.subplots(figsize=(28, 3))
 
-        ax.plot(self.signal)
-        ax.scatter(self.samples, self.signal[self.samples], c='red')
+        ax.plot(self.signal, color='blue')
+        # ax.scatter(self.samples, self.signal[self.samples], c='red')
+
+        ax.set_xlabel('Nodes (point)', fontsize=16)
+        ax.set_ylabel('Amplitude (mV)', fontsize=16)
+
+        ax.xaxis.set_tick_params(labelsize=12)
+        ax.yaxis.set_tick_params(labelsize=12)
+
+        if save_path is not None:
+            fig.savefig(save_path, bbox_inches='tight')
     
     def plot_segments(self, ax=None):
         if ax is None:
             _, ax = plt.subplots(figsize=(28, 3))
 
-        ax.plot(self.signal)
+        ax.plot(self.signal, color='blue')
 
         segments = []
         legend_patches = []
@@ -209,6 +278,8 @@ class ECGSignal:
         
         # make patches for existing segments
         for seg in sorted(segments):
+            if seg == -1: continue
+
             patch = patches.Patch(color=SEGMENT_TO_COLOR[seg], label=SEGMENTS_STR[seg])
             legend_patches.append(patch)
 
@@ -219,8 +290,14 @@ class ECGSignal:
         segment_start_end = []
 
         prev_symbol = None
-        for start, peak, end in util_func.grouped(self.samples):
-            symbol_idx = np.where(self.samples == peak)[0][0]
+
+        for idx_start, idx_peak, idx_end in util_func.grouped_symbols(self.symbols):
+            start = self.samples[idx_start]
+            peak = self.samples[idx_peak]
+            end = self.samples[idx_end]
+
+            # symbol_idx = np.where(self.samples == peak)[0][0]
+            symbol_idx = idx_peak
 
             curr_symbol = self.symbols[symbol_idx]
 
@@ -292,23 +369,92 @@ class ECGSignal:
         
         return beats
 
-    def cut_p_to_p(self):
-        prev_p_start = None
-        beats = []
-        for seg, points in self.segment_start_end:
-            start, _ = points
+    # def cut_per_beat(self):
+    #     beats = [] # beats list contains tuple (signal, segment_map) of each beat
 
-            if (seg == SEGMENTS_NUM['Pon-Poff']) and (prev_p_start is None):
-                prev_p_start = start
-                break
+    #     mark = 0
+    #     ptr_start = 0
+    #     ptr_end = 0
+
+    #     for seg, points in self.segment_start_end:
+    #         start, end = points
+
+    #         if seg == SEGMENTS_NUM['Pon-Poff']:
+    #             mark += 1
+    #             ptr_start = start
+    #             if mark == 1:
+    #                 continue
+    #             else:
+    #                 mark = 0
             
-            elif (seg == SEGMENTS_NUM['Pon-Poff']):
-                signal = self.signal[prev_p_start:start]
-                segment_map = self.segment_map[prev_p_start:start]
+    #         elif seg == SEGMENTS_NUM['Poff-QRSon']:
+    #             mark += 1
+    #             if mark == 2:
+    #                 continue
+    #             else:
+    #                 mark = 0
 
-                beats.append((signal, segment_map))
+    #         elif seg == SEGMENTS_NUM['QRSon-Rpeak']:
+    #             mark += 1
+    #             if mark == 3:
+    #                 continue
+    #             else:
+    #                 mark = 0
+
+    #         elif seg == SEGMENTS_NUM['Rpeak-QRSoff']:
+    #             mark += 1
+    #             if mark == 4:
+    #                 continue
+    #             else:
+    #                 mark = 0
+            
+    #         elif seg == SEGMENTS_NUM['QRSoff-Ton']:
+    #             mark += 1
+    #             if mark == 5:
+    #                 continue
+    #             else:
+    #                 mark = 0
+
+    #         elif seg == SEGMENTS_NUM['Ton-Toff']:
+    #             mark += 1
+    #             if mark == 6:
+    #                 continue
+    #             else:
+    #                 mark = 0
+
+    #         elif seg == SEGMENTS_NUM['Toff-Pon2']:
+    #             mark += 1
+    #             if mark == 7:
+    #                 ptr_end = end
+
+    #                 signal = self.signal[ptr_start:ptr_end]
+    #                 segment_map = self.segment_map[ptr_start:ptr_end]
+
+    #                 beats.append((signal, segment_map)) 
+
+    #                 mark = 0
+    #             else:
+    #                 mark = 0
         
-        return beats
+    #     return beats
+
+    # def cut_p_to_p(self):
+    #     prev_p_start = None
+    #     beats = []
+    #     for seg, points in self.segment_start_end:
+    #         start, _ = points
+
+    #         if (seg == SEGMENTS_NUM['Pon-Poff']) and (prev_p_start is None):
+    #             prev_p_start = start
+    #             break
+            
+    #         elif (seg == SEGMENTS_NUM['Pon-Poff']):
+    #             signal = self.signal[prev_p_start:start]
+    #             segment_map = self.segment_map[prev_p_start:start]
+
+    #             beats.append((signal, segment_map))
+        
+    #     return beats
 
 
             

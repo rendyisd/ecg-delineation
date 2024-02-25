@@ -35,7 +35,7 @@ COLORS = { # Zero padding given no color
 #DEPRECATED
 def generate_model(input_shape, output, lr=1e-5, n_layer=1):
     model = tf.keras.models.Sequential()
-    opt = tf.keras.optimizers.Adam(learning_rate=lr)
+    opt = tf.keras.optimizers.RMSprop(learning_rate=lr)
 
     # Conv layers
     model.add(tf.keras.layers.Conv1D(8, 3, input_shape=input_shape, padding='same', activation='relu'))
@@ -159,6 +159,7 @@ def calc_metrics(y_true, y_pred, save_to):
     metrics_indexes = CLASSES + ['Macro-averaged', 'Micro-averaged']
 
     metrics_dataframe = pd.DataFrame(metrics, index=metrics_indexes)
+    metrics_dataframe = metrics_dataframe.applymap(lambda x: np.round(x * 100, 2))
     metrics_dataframe.to_csv(f'{save_to}/metrics.csv')
 
     plt.figure(figsize=(8, 6))
@@ -306,28 +307,16 @@ def roc_pr(y_true, y_pred, save_to):
 #         info_file.write(f'Learning Rate: {lr} | n_layer: {n_layer} | Batch Size: {bs}\n | Epoch: {epoch}')
 #         info_file.write(f'Time elapsed: {time_elapsed:.2f} seconds\n')
 
-def generate_results(model, model_history, model_info, train_set, val_set, test_set, zpad_length):
+def generate_results(model, model_history, model_info, train_set, val_set, test_set):
     '''
     model: trained model
     model_history: dictionary of model training history
     model_info: dictionary, must atleast have the "name" key
     '''
-    def plot_segments(X, y, zpad, idx, save_path):
-        signal = X[idx].flatten()
-        segment_map = y[idx].argmax(axis=1)
-
-        beat_span = len(signal) - zpad[idx]
-
-        signal = signal[:beat_span]
-        segment_map = segment_map[:beat_span]
-
-        ECGSignal.plot_signal_segments(signal, segment_map, save_path=save_path)
 
     X_train, y_train = train_set
     X_val, y_val = val_set
     X_test, y_test = test_set
-
-    zpad_length_train, zpad_length_val, zpad_length_test = zpad_length
     
     result_path = f'../result/{model_info["name"]}'
     save_to_train = f'{result_path}/train'
@@ -348,8 +337,14 @@ def generate_results(model, model_history, model_info, train_set, val_set, test_
     roc_pr(y_train, y_pred_train, save_to_train)
     
     for i in range(0, 41, 10):
-        plot_segments(X_train, y_train, zpad=zpad_length_train, idx=i, save_path=f'{save_to_train}/delineation/Expert_annotated_{i}.jpg') # Expert annotated
-        plot_segments(X_train, y_pred_train, zpad=zpad_length_train, idx=i, save_path=f'{save_to_train}/delineation/Prediction_{i}.jpg') # Prediction
+        util_func.plot_rhytm_gt_pred(X_train,
+                                     y_train,
+                                     y_pred_train,
+                                     None,
+                                     i,
+                                     fig_title=f'Lead {model_info["lead"]} - Train Set',
+                                     length=1,
+                                     save_path=f'{save_to_train}/delineation/Beat_{i}.jpg')
     # ====================================================
 
     # PREDICT VALIDATION
@@ -358,8 +353,14 @@ def generate_results(model, model_history, model_info, train_set, val_set, test_
     roc_pr(y_val, y_pred_val, save_to_val)
 
     for i in range(0, 41, 10):
-        plot_segments(X_val, y_val, zpad=zpad_length_val, idx=i, save_path=f'{save_to_val}/delineation/Expert_annotated_{i}.jpg') # Expert annotated
-        plot_segments(X_val, y_pred_val, zpad=zpad_length_val, idx=i, save_path=f'{save_to_val}/delineation/Prediction_{i}.jpg') # Prediction
+        util_func.plot_rhytm_gt_pred(X_val,
+                                     y_val,
+                                     y_pred_val,
+                                     None,
+                                     i,
+                                     fig_title=f'Lead {model_info["lead"]} - Validation Set',
+                                     length=1,
+                                     save_path=f'{save_to_val}/delineation/Beat_{i}.jpg')
     # ====================================================
 
     # PREDICT test
@@ -368,8 +369,14 @@ def generate_results(model, model_history, model_info, train_set, val_set, test_
     roc_pr(y_test, y_pred_test, save_to_test)
 
     for i in range(0, 41, 10):
-        plot_segments(X_test, y_test, zpad=zpad_length_test, idx=i, save_path=f'{save_to_test}/delineation/Expert_annotated_{i}.jpg') # Expert annotated
-        plot_segments(X_test, y_pred_test, zpad=zpad_length_test, idx=i, save_path=f'{save_to_test}/delineation/Prediction_{i}.jpg') # Prediction
+        util_func.plot_rhytm_gt_pred(X_test,
+                                     y_test,
+                                     y_pred_test,
+                                     None,
+                                     i,
+                                     fig_title=f'Lead {model_info["lead"]} - Test Set',
+                                     length=1,
+                                     save_path=f'{save_to_test}/delineation/Beat_{i}.jpg')
     # ====================================================
 
     with open(f'{result_path}/Model_info.txt', 'w') as info_file:
