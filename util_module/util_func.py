@@ -152,6 +152,7 @@ def plot_rhytm_gt_pred(X, y, y_pred, zpad, start_idx,  fig_title, length=5, save
     plot_rhytm(X, y, zpad=zpad, start_idx=start_idx, length=length, ax=ax1)
     plot_rhytm(X, y_pred, zpad=zpad, start_idx=start_idx, length=length, ax=ax2)
 
+    ax1.get_legend().remove()
     ax1.set_xticks([])
     ax1.set_yticks([])
     ax1.set_xlabel('')
@@ -186,3 +187,16 @@ def get_segment_start_end(y_pred):
     for label in range(8):
         predictions[label] = find_island_boundaries(y_pred, label)[1]
     return predictions
+
+def get_lead_display_name(lead):
+    lead_dict = {
+        'avr': 'aVR',
+        'avl': 'aVL',
+        'avf': 'aVF'
+    }
+
+    if (lead == 'avr') or (lead == 'avl') or (lead == 'avf'):
+        return lead_dict[lead]
+    else:
+        return lead.upper()
+    

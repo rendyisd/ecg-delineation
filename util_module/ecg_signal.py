@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
@@ -76,9 +77,14 @@ class ECGSignal:
         if record_numbers == -1:
             record_numbers = range(1, 201)
 
+        ludb_csv = pd.read_csv('../data/ludb/ludb.csv')
+        ludb_csv = ludb_csv.replace('\n', '', regex=True)
+
         result = {
             'record_number': [],
             'lead': [],
+            'sex': [],
+            'age': [],
             'signal': [],
             'is_st_elevation': []
         }
@@ -94,6 +100,8 @@ class ECGSignal:
 
                 result['record_number'].append(record_num)
                 result['lead'].append(lead)
+                result['sex'].append(ludb_csv[ludb_csv['ID'] == record_num]['Sex'].values[0])
+                result['age'].append(ludb_csv[ludb_csv['ID'] == record_num]['Age'].values[0])
                 result['signal'].append(signal)
                 result['is_st_elevation'].append(is_st_elevation)
         
@@ -237,7 +245,7 @@ class ECGSignal:
         for seg in sorted(segments):
             if seg == -1: continue
 
-            patch = patches.Patch(color=SEGMENT_TO_COLOR[seg], label=SEGMENTS_STR[seg])
+            patch = patches.Patch(color=SEGMENT_TO_COLOR[seg], label=SEGMENTS_STR[seg], alpha=0.4)
             legend_patches.append(patch)
 
         ax.legend(handles=legend_patches, loc='upper right')
