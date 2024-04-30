@@ -6,20 +6,11 @@ import matplotlib.pyplot as plt
 import pywt
 
 from sklearn.model_selection import train_test_split
-from scipy import stats
+# from scipy import stats
 
 from util_module.ecg_signal import ECGSignal
 
 # Helper
-# def grouped(itr, n=3):
-#     itr = iter(itr)
-#     end = object()
-#     while True:
-#         vals = tuple(next(itr, end) for _ in range(n))
-#         if vals[-1] is end:
-#             return
-#         yield vals
-
 def grouped_symbols(symbols):
     indices = []
     for i in range(len(symbols)):

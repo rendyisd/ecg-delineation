@@ -252,14 +252,15 @@ class ECGSignal:
         if save_path is not None:
             fig.savefig(save_path, bbox_inches='tight')
 
-    def plot_signal_samples(self, save_path=None):
-        fig, ax = plt.subplots(figsize=(28, 3))
+    def plot_signal_samples(self, ax=None, save_path=None):
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(28, 3))
 
-        ax.plot(self.signal, color='blue')
-        # ax.scatter(self.samples, self.signal[self.samples], c='red')
+        ax.plot(self.signal, color='blue', linewidth=1)
+        ax.scatter(self.samples, self.signal[self.samples], c='red', s=100)
 
-        ax.set_xlabel('Nodes (point)', fontsize=16)
-        ax.set_ylabel('Amplitude (mV)', fontsize=16)
+        ax.set_xlabel('Nodes (point)', fontsize=20)
+        ax.set_ylabel('Amplitude (mV)', fontsize=20)
 
         ax.xaxis.set_tick_params(labelsize=12)
         ax.yaxis.set_tick_params(labelsize=12)
