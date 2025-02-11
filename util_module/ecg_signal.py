@@ -248,7 +248,7 @@ class ECGSignal:
             patch = patches.Patch(color=SEGMENT_TO_COLOR[seg], label=SEGMENTS_STR[seg], alpha=0.4)
             legend_patches.append(patch)
 
-        ax.legend(handles=legend_patches, loc='upper right')
+        ax.legend(handles=legend_patches, loc='upper right') # , prop={'size':20} <- add this to change size
         if save_path is not None:
             fig.savefig(save_path, bbox_inches='tight')
 
@@ -268,9 +268,9 @@ class ECGSignal:
         if save_path is not None:
             fig.savefig(save_path, bbox_inches='tight')
     
-    def plot_segments(self, ax=None):
+    def plot_segments(self, ax=None, save_path=None):
         if ax is None:
-            _, ax = plt.subplots(figsize=(28, 3))
+            fig, ax = plt.subplots(figsize=(28, 3))
 
         ax.plot(self.signal, color='blue')
 
@@ -293,6 +293,9 @@ class ECGSignal:
             legend_patches.append(patch)
 
         ax.legend(handles=legend_patches, loc='upper right')
+
+        if save_path is not None:
+            fig.savefig(save_path, bbox_inches='tight')
         
     def segmentate(self):
         segment_map = np.full(len(self.signal), -1)

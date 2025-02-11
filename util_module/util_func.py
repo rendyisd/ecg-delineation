@@ -190,4 +190,14 @@ def get_lead_display_name(lead):
         return lead_dict[lead]
     else:
         return lead.upper()
-    
+
+def remove_zero_padding(signal, y_pred):
+    assert signal.shape == y_pred.shape
+
+    nonzero = np.where(y_pred != 7)[0]
+    new_signal = signal[nonzero]
+    new_y = y_pred[nonzero]
+
+    assert new_signal.shape == new_y.shape
+
+    return new_signal, new_y

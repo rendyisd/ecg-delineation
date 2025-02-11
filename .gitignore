@@ -3,6 +3,7 @@ data/
 model/
 result/
 test/
+TA_WriteUp/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
