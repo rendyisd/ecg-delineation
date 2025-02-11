@@ -1,12 +1,5 @@
-# ECG Delineation with ConvBiLSTM model
+# README
 
-## Data
-Lobachevsky University Electrocardiography Database (LUDB)
-
-## Preprocessing
-#### Denoising
-Using Discrete Wavelet Transform with biorthogonal3.3 mother function, decomposition level 7, soft SURE threshold.
-#### Normalization
-Lower bound: 0 and Upper bound: 1
-#### Segmentation
-Each beat, from P-wave to P-wave.
+To change zero padding index to 0:
+1. Change all SEGMENTS_NUM / SEGMENTS_STR / COLORS / Zero Padding ordinate in array
+2. Change model_func for loop start and end index
